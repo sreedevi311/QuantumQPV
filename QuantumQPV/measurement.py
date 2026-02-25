@@ -1,6 +1,7 @@
 import numpy as np
 from qutip import basis, ket2dm, expect
 
+
 def measure_state(state, basis_choice):
 
     if basis_choice == 0:   # Z basis
@@ -14,5 +15,12 @@ def measure_state(state, basis_choice):
 
     p0 = expect(proj0, state)
     p1 = expect(proj1, state)
+
+    # Normalize to avoid floating-point errors
+    total = p0 + p1
+    if total == 0:
+        return np.random.choice([0, 1])
+    p0 /= total
+    p1 /= total
 
     return np.random.choice([0, 1], p=[p0, p1])
