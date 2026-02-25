@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quantum Secure Drone Monitoring</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: #0f172a;
+            overflow: hidden;
+        }
+
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+
+        /* Center Status */
+        #statusContainer {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            padding: 15px 30px;
+            background: rgba(15, 23, 42, 0.9);
+            border-radius: 10px;
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+
+        .normal {
+            color: #22c55e;
+        }
+
+        .spoof {
+            color: #ef4444;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0.5; }
+        }
+
+        /* Right Panel */
+        #detailsPanel {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 350px;
+            height: 100vh;
+            background: #1e293b;
+            color: white;
+            padding: 20px;
+            z-index: 1000;
+            overflow-y: auto;
+            box-shadow: -4px 0 10px rgba(0,0,0,0.4);
+        }
+
+        #detailsPanel h3 {
+            border-bottom: 1px solid #334155;
+            padding-bottom: 5px;
+            margin-top: 20px;
+        }
+
+        .metric {
+            margin: 10px 0;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- Center Status -->
+<div id="statusContainer">
+    <span id="status" class="normal">SYSTEM INITIALIZING...</span>
+</div>
+
+<!-- Right Side Panel -->
+<div id="detailsPanel">
+    <h2>Verification Metrics</h2>
+
+    <h3>Quantum</h3>
+    <div class="metric">QBER: <span id="qber">---</span></div>
+    <div class="metric">Detection Rate: <span id="rate">---</span></div>
+
+    <h3>Timing</h3>
+    <div class="metric">Average Delay: <span id="delay">---</span></div>
+    <div class="metric">Delay Deviation: <span id="deviation">---</span></div>
+
+    <h3>Channel</h3>
+    <div class="metric">Noise Probability: <span id="noise">---</span></div>
+    <div class="metric">Loss Probability: <span id="loss">---</span></div>
+</div>
+
+<script>
+    // Initialize Map
+    var map = L.map('map').setView([16.544, 81.522], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // Icons
+    var droneIcon = new L.Icon({
+        iconUrl: "/static/dronesafe.png",
+        iconSize: [50, 50],
+        iconAnchor: [25, 25]
+    });
+
+    var droneAlertIcon = new L.Icon({
+        iconUrl: "/static/dronespoof.png",
+        iconSize: [50, 50],
+        iconAnchor: [25, 25]
+    });
+
+    var towerIcon = new L.Icon({
+        iconUrl: "/static/dronesafe.png",
+        iconSize: [45, 45],
+        iconAnchor: [22, 40]
+    });
+
+    // Add Verifiers
+    L.marker([16.540, 81.520], {icon: towerIcon})
+        .addTo(map)
+        .bindPopup("Verifier A - Quantum Node");
+
+    L.marker([16.550, 81.530], {icon: towerIcon})
+        .addTo(map)
+        .bindPopup("Verifier B - Quantum Node");
+
+    // Add Drone
+    var drone = L.marker([16.545, 81.525], {icon: droneIcon})
+        .addTo(map)
+        .bindPopup("Autonomous Drone");
+
+
+
+    // 🔥 Continuous Live Streaming from Flask Backend
+    const eventSource = new EventSource('/stream');
+
+    eventSource.onmessage = function(event) {
+
+        const data = JSON.parse(event.data);
+
+        // Change status + icon
+        if (data.status === "normal") {
+            drone.setIcon(droneIcon);
+            document.getElementById("status").className = "normal";
+            document.getElementById("status").innerHTML = "SECURE POSITION VERIFIED";
+        } else {
+            drone.setIcon(droneAlertIcon);
+            document.getElementById("status").className = "spoof";
+            document.getElementById("status").innerHTML = "SPOOFING DETECTED";
+        }
+
+        // Update Metrics
+        document.getElementById("qber").innerHTML = data.qber;
+        document.getElementById("rate").innerHTML = data.detection_rate;
+        document.getElementById("delay").innerHTML = data.avg_delay + " sec";
+        document.getElementById("deviation").innerHTML = data.delay_deviation;
+        document.getElementById("noise").innerHTML = data.noise_probability;
+        document.getElementById("loss").innerHTML = data.loss_probability;
+    };
+
+    eventSource.onerror = function() {
+        document.getElementById("status").innerHTML = "⚠ CONNECTION LOST";
+        document.getElementById("status").className = "spoof";
+    };
+
+</script>
+
+</body>
+</html>
